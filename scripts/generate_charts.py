@@ -1,30 +1,28 @@
-"""
-Generate visualization charts for the SkateboardML project.
-Creates charts for class distribution, training history, and model performance.
-"""
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import os
 import json
+import sys
+from pathlib import Path
 from collections import Counter
+
+# Add parent directory to path to import config
+sys.path.append(str(Path(__file__).parent.parent))
+from config.paths import config, LABELS
 
 # Set style
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
 
-# Base paths
-BASE_PATH = "d:/DV/SkateboardML"
-OUTPUT_DIR = os.path.join(BASE_PATH, "charts")
+# Dynamic paths
+OUTPUT_DIR = str(config.OUTPUTS_DIR / "charts")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-LABELS = ["Back180", "Front180", "Frontshuvit", "Kickflip", "Ollie", "Shuvit", "Varial"]
 
 
 def load_file_list(filename):
     """Load train or test file list."""
-    filepath = os.path.join(BASE_PATH, filename)
+    filepath = str(config.DATA_DIR / filename)
     with open(filepath, 'r') as f:
         file_list = [row.strip() for row in f]
         file_list = [row.split(' ')[0] for row in file_list]
@@ -173,7 +171,7 @@ def plot_class_imbalance():
 
 def plot_training_history(history_file='training_history.json'):
     """Plot training history if available."""
-    history_path = os.path.join(BASE_PATH, history_file)
+    history_path = str(config.PROJECT_ROOT / history_file)
     
     if not os.path.exists(history_path):
         print(f"Training history file not found: {history_path}")
@@ -288,7 +286,7 @@ def plot_missing_files():
     
     for filepath in all_files:
         label = os.path.basename(os.path.dirname(filepath))
-        npy_path = os.path.join(BASE_PATH, 'Tricks', filepath.replace('.mov', '.npy'))
+        npy_path = str(config.TRICKS_DIR / filepath.replace('.mov', '.npy'))
         
         if os.path.exists(npy_path):
             existing_by_class[label] += 1

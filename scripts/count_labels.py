@@ -1,8 +1,15 @@
 from collections import Counter
 import os
-p=os.path.dirname(os.path.dirname(__file__))
-train_file=os.path.join(p,'trainlist03.txt')
-test_file=os.path.join(p,'testlist03.txt')
+import sys
+from pathlib import Path
+
+# Add parent directory to path to import config
+sys.path.append(str(Path(__file__).parent.parent))
+from config.paths import config
+
+# Use dynamic paths
+train_file = str(config.TRAIN_LIST)
+test_file = str(config.TEST_LIST)
 
 with open(train_file,'r',encoding='utf-8') as f:
     train=[l.strip() for l in f if l.strip()]

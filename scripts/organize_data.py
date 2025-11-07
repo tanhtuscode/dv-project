@@ -1,20 +1,19 @@
-"""
-Organize SkateboardML data into proper train/validation/test structure.
-This script reorganizes the data based on existing train/test lists and creates a validation split.
-"""
-
 import os
 import shutil
 import random
+import sys
 from pathlib import Path
+
+# Add parent directory to path to import config
+sys.path.append(str(Path(__file__).parent.parent))
+from config.paths import config
 
 # Set random seed for reproducibility
 random.seed(42)
 
-# Base paths
-BASE_PATH = Path("d:/DV/SkateboardML")
-TRICKS_PATH = BASE_PATH / "Tricks"
-DATA_PATH = BASE_PATH / "data"
+# Dynamic paths
+TRICKS_PATH = config.TRICKS_DIR
+DATA_PATH = config.DATA_DIR
 
 # Create data directories
 for split in ["train", "validation", "test"]:
@@ -22,7 +21,7 @@ for split in ["train", "validation", "test"]:
 
 def load_file_list(filename):
     """Load file list from train/test list files."""
-    filepath = BASE_PATH / filename
+    filepath = config.DATA_DIR / filename
     if not filepath.exists():
         print(f"Warning: {filename} not found")
         return []
@@ -134,11 +133,11 @@ def create_summary_files():
 def clean_old_structure():
     """Clean up old file structure."""
     # Move original lists to archive
-    archive_dir = BASE_PATH / "archive"
+    archive_dir = config.PROJECT_ROOT / "archive"
     archive_dir.mkdir(exist_ok=True)
     
     for filename in ["trainlist02.txt", "trainlist03.txt", "testlist02.txt", "testlist03.txt"]:
-        src = BASE_PATH / filename
+        src = config.PROJECT_ROOT / filename
         if src.exists():
             shutil.move(str(src), str(archive_dir / filename))
             print(f"Moved {filename} to archive/")

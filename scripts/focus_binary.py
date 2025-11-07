@@ -4,19 +4,23 @@ This script creates new train/test lists with only Ollie and Kickflip samples.
 """
 
 import os
+import sys
 from pathlib import Path
 
-# Base paths
-BASE_PATH = Path("d:/DV/SkateboardML")
-TRICKS_PATH = BASE_PATH / "Tricks"
+# Add parent directory to path to import config
+sys.path.append(str(Path(__file__).parent.parent))
+from config.paths import config, LABELS
+
+# Dynamic paths
+TRICKS_PATH = config.TRICKS_DIR
 
 # Target classes
 TARGET_CLASSES = ["Ollie", "Kickflip"]
 
 def filter_file_list(input_filename, output_filename):
     """Filter file list to only include target classes."""
-    input_path = BASE_PATH / input_filename
-    output_path = BASE_PATH / output_filename
+    input_path = config.DATA_DIR / input_filename
+    output_path = config.DATA_DIR / output_filename
     
     if not input_path.exists():
         print(f"Warning: {input_filename} not found")
@@ -119,7 +123,7 @@ def update_training_scripts():
     print("=" * 50)
     
     for script_name in scripts_to_update:
-        script_path = BASE_PATH / script_name
+        script_path = config.PROJECT_ROOT / script_name
         if not script_path.exists():
             print(f"  {script_name}: Not found")
             continue
@@ -145,7 +149,7 @@ def update_training_scripts():
 
 def create_project_summary():
     """Create a summary of the focused project."""
-    summary_path = BASE_PATH / "PROJECT_SUMMARY.md"
+    summary_path = config.PROJECT_ROOT / "PROJECT_SUMMARY.md"
     
     with open(summary_path, 'w') as f:
         f.write("# SkateboardML - Binary Classification Project\n\n")
