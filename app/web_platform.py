@@ -59,28 +59,43 @@ except Exception as e:
     print(f"Warning: Could not load InceptionV3: {e}")
 
 def get_available_labels():
-    """Get all available labels from the tricks directory"""
+    """Get all available labels from the tricks directory (only folders with data)"""
     global current_labels
     if not current_labels:
         tricks_dir = Path(TRICKS_PATH)
+        labels_with_data = []
+        
         if tricks_dir.exists():
-            current_labels = [d.name for d in tricks_dir.iterdir() if d.is_dir()]
-        if not current_labels:
+            for label_dir in tricks_dir.iterdir():
+                if label_dir.is_dir():
+                    # Only include folders that have .npy files (actual data)
+                    npy_files = list(label_dir.glob('*.npy'))
+                    if npy_files:
+                        labels_with_data.append(label_dir.name)
+        
+        if labels_with_data:
+            current_labels = labels_with_data
+        else:
             current_labels = ['Kickflip', 'Ollie']
+    
     return current_labels
 
 def update_data_lists():
-    """Automatically update train/test/validation lists"""
+    """Automatically update train/test/validation lists (only for labels with data)"""
     tricks_dir = Path(TRICKS_PATH)
     all_files = []
     
+    # Only process folders that have .npy files
     for label_dir in tricks_dir.iterdir():
         if label_dir.is_dir():
-            for video_file in label_dir.glob("*.MOV"):
-                npy_file = video_file.with_suffix('.npy')
-                if npy_file.exists():
-                    relative_path = str(video_file.relative_to(tricks_dir)).replace('\\', '/')
-                    all_files.append(relative_path)
+            npy_files = list(label_dir.glob("*.npy"))
+            if npy_files:  # Only process if folder has data
+                for npy_file in npy_files:
+                    # Look for corresponding .MOV file
+                    mov_file = npy_file.with_suffix('.MOV')
+                    if mov_file.exists():
+                        relative_path = str(mov_file.relative_to(tricks_dir)).replace('\\', '/')
+                        all_files.append(relative_path)
     
     # Split data: 70% train, 15% test, 15% validation
     np.random.shuffle(all_files)

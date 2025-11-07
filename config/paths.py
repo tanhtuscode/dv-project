@@ -59,8 +59,9 @@ class Config:
         
         # Data paths
         self.TRICKS_DIR = self.DATA_DIR / 'Tricks'
-        self.TRAIN_LIST = self.DATA_DIR / 'trainlist_binary.txt'
-        self.TEST_LIST = self.DATA_DIR / 'testlist_binary.txt'
+        self.TRAIN_LIST = self.DATA_DIR / 'trainlist.txt'
+        self.TEST_LIST = self.DATA_DIR / 'testlist.txt'
+        self.VALIDATION_LIST = self.DATA_DIR / 'validationlist.txt'
         
         # App paths
         self.TEMPLATES_DIR = self.APP_DIR / 'templates'
@@ -121,7 +122,28 @@ config = Config()
 
 # Constants for easy access
 SEQUENCE_LENGTH = 40
-LABELS = ["Kickflip", "Ollie"]
+
+# Auto-detect labels with actual data (only folders with .npy files)
+def get_labels_with_data():
+    """Dynamically get labels that have actual data files"""
+    tricks_dir = config.TRICKS_DIR
+    labels_with_data = []
+    
+    if tricks_dir.exists():
+        for folder in sorted(tricks_dir.iterdir()):
+            if folder.is_dir():
+                # Check if folder has any .npy files
+                npy_files = list(folder.glob('*.npy'))
+                if npy_files:
+                    labels_with_data.append(folder.name)
+    
+    # Fallback to default if no data found
+    if not labels_with_data:
+        labels_with_data = ["Kickflip", "Ollie"]
+    
+    return labels_with_data
+
+LABELS = get_labels_with_data()
 ALLOWED_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv'}
 
 # Path shortcuts for common use
