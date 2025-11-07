@@ -1,8 +1,3 @@
-"""
-SkateboardML Web Application
-A comprehensive web interface for training, testing, and predicting skateboard tricks
-"""
-
 import os
 import shutil
 import tempfile
@@ -13,6 +8,12 @@ import tensorflow as tf
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 import cv2
+import sys
+
+# Add parent directory to path to import config
+sys.path.append(str(Path(__file__).parent.parent))
+from config.paths import config, SEQUENCE_LENGTH, LABELS, ALLOWED_EXTENSIONS
+
 try:
     from tensorflow.keras.applications import InceptionV3
     from tensorflow.keras.applications.inception_v3 import preprocess_input
@@ -23,16 +24,13 @@ app = Flask(__name__)
 app.secret_key = 'skateboardml_secret_key_2024'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 
-# Configuration
-BASE_PATH = 'd:/DV/SkateboardML'
-TRICKS_PATH = os.path.join(BASE_PATH, 'Tricks')
-UPLOAD_FOLDER = os.path.join(BASE_PATH, 'uploads')
-MODEL_PATH = os.path.join(BASE_PATH, 'models')
-SEQUENCE_LENGTH = 40
-ALLOWED_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv'}
-
-# Current labels (can be updated dynamically)
-LABELS = ["Kickflip", "Ollie"]
+# Dynamic configuration that works on any PC
+BASE_PATH = str(config.PROJECT_ROOT)
+TRICKS_PATH = str(config.TRICKS_DIR)
+UPLOAD_FOLDER = str(config.UPLOADS_DIR)
+MODEL_PATH = str(config.MODELS_DIR)
+TRAIN_LIST_PATH = str(config.TRAIN_LIST)
+TEST_LIST_PATH = str(config.TEST_LIST)
 
 # Ensure required directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -101,9 +99,9 @@ def load_best_model():
 def update_training_files(video_filename, trick_label, split='train'):
     """Add new video to training or test lists"""
     if split == 'train':
-        list_file = os.path.join(BASE_PATH, 'trainlist_binary.txt')
+        list_file = os.path.join(BASE_PATH, 'data', 'trainlist_binary.txt')
     else:
-        list_file = os.path.join(BASE_PATH, 'testlist_binary.txt')
+        list_file = os.path.join(BASE_PATH, 'data', 'testlist_binary.txt')
     
     # Create the entry for the list file
     entry = f"{trick_label}/{video_filename}"
@@ -325,6 +323,9 @@ def train_model():
     """Trigger model training with current data"""
     try:
         # Import and run training
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
         from train_windows import run_training
         
         epochs = request.form.get('epochs', 10, type=int)
@@ -387,12 +388,12 @@ def get_dataset_stats():
         train_count = 0
         test_count = 0
         
-        train_file = os.path.join(BASE_PATH, 'trainlist_binary.txt')
+        train_file = os.path.join(BASE_PATH, 'data', 'trainlist_binary.txt')
         if os.path.exists(train_file):
             with open(train_file, 'r') as f:
                 train_count = len([line.strip() for line in f if line.strip()])
         
-        test_file = os.path.join(BASE_PATH, 'testlist_binary.txt')
+        test_file = os.path.join(BASE_PATH, 'data', 'testlist_binary.txt')
         if os.path.exists(test_file):
             with open(test_file, 'r') as f:
                 test_count = len([line.strip() for line in f if line.strip()])
