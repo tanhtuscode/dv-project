@@ -1,8 +1,3 @@
-"""
-Unified Training Script for SkateboardML
-Supports both binary (Ollie vs Kickflip) and multi-class classification.
-Works on any PC with dynamic path configuration.
-"""
 import tensorflow as tf
 import os
 import numpy as np
@@ -25,18 +20,48 @@ MODELS_DIR = str(config.MODELS_DIR)
 label_to_index = {label: idx for idx, label in enumerate(LABELS)}
 
 def build_model(num_classes):
-    """Build LSTM model for skateboard trick classification."""
+    """Build LSTM model for skateboard trick classification.
+    
+    Improved architecture to reduce overfitting:
+    - Smaller LSTM (128 units instead of 512)
+    - Less aggressive dropout (0.3 instead of 0.5)
+    - L2 regularization to prevent overfitting
+    - Simpler architecture for small datasets
+    """
+    from tensorflow.keras import regularizers
+    
     model = tf.keras.Sequential([
         tf.keras.layers.Masking(mask_value=0.),
-        tf.keras.layers.LSTM(512, dropout=0.5, recurrent_dropout=0.5),
-        tf.keras.layers.Dense(256, activation='relu'),
-        tf.keras.layers.Dropout(0.5),
+        
+        # Smaller LSTM with regularization
+        tf.keras.layers.LSTM(
+            128,  # Reduced from 512
+            dropout=0.3,  # Reduced from 0.5
+            recurrent_dropout=0.3,  # Reduced from 0.5
+            kernel_regularizer=regularizers.l2(0.01),
+            recurrent_regularizer=regularizers.l2(0.01)
+        ),
+        
+        # Smaller dense layer
+        tf.keras.layers.Dense(
+            64,  # Reduced from 256
+            activation='relu',
+            kernel_regularizer=regularizers.l2(0.01)
+        ),
+        
+        # Less dropout
+        tf.keras.layers.Dropout(0.3),  # Reduced from 0.5
+        
+        # Output layer
         tf.keras.layers.Dense(num_classes, activation='softmax')
     ])
     
+    # Use a lower learning rate for better convergence
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0005)
+    
     model.compile(
         loss='sparse_categorical_crossentropy',
-        optimizer='Adam',
+        optimizer=optimizer,
         metrics=['accuracy']
     )
     
@@ -90,12 +115,12 @@ def compute_class_weights(train_list, label_to_index):
     
     return class_weight
 
-def run_training(epochs=17, use_class_weights=True):
+def run_training(epochs=30, use_class_weights=True):
     """
     Train the skateboard trick classifier.
     
     Args:
-        epochs: Number of training epochs
+        epochs: Number of training epochs (increased to 30 for better learning)
         use_class_weights: Whether to use class weights to handle imbalance
     """
     print("\n" + "="*60)
@@ -153,7 +178,7 @@ def run_training(epochs=17, use_class_weights=True):
     log_dir = config.OUTPUTS_DIR / 'logs'
     log_dir.mkdir(parents=True, exist_ok=True)
     
-    # Setup callbacks
+    # Setup callbacks with improved early stopping
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
         log_dir=str(log_dir), 
         update_freq=1000
@@ -166,10 +191,21 @@ def run_training(epochs=17, use_class_weights=True):
         verbose=1
     )
     
+    # Improved early stopping - more patience, monitor val_loss
     early_stopping = tf.keras.callbacks.EarlyStopping(
         monitor='val_loss',
-        patience=5,
+        patience=10,  # Increased from 5 to 10
         restore_best_weights=True,
+        verbose=1,
+        min_delta=0.001  # Only stop if improvement is less than 0.001
+    )
+    
+    # Reduce learning rate when stuck
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor='val_loss',
+        factor=0.5,  # Reduce LR by half
+        patience=5,  # After 5 epochs without improvement
+        min_lr=0.00001,
         verbose=1
     )
     
@@ -181,7 +217,7 @@ def run_training(epochs=17, use_class_weights=True):
     history = model.fit(
         train_dataset, 
         epochs=epochs, 
-        callbacks=[tensorboard_callback, checkpoint_callback, early_stopping], 
+        callbacks=[tensorboard_callback, checkpoint_callback, early_stopping, reduce_lr], 
         validation_data=valid_dataset,
         class_weight=class_weight
     )
@@ -213,7 +249,8 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description='Train SkateboardML classifier')
-    parser.add_argument('--epochs', type=int, default=17, help='Number of training epochs')
+    parser.add_argument('--epochs', type=int, default=30, 
+                       help='Number of training epochs (default: 30)')
     parser.add_argument('--no-class-weights', action='store_true', 
                        help='Disable class weights')
     
