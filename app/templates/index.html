@@ -196,6 +196,37 @@
                     <div class="mt-3" id="resultsContainer"></div>
                 </div>
 
+                <!-- Label Management Section -->
+                <div class="feature-section">
+                    <div class="section-header">
+                        <h4 class="mb-0"><i class="fas fa-tags"></i> Label Management</h4>
+                    </div>
+                    
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        <strong>Warning:</strong> Removing a label will permanently delete all associated videos and features.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div id="labelManagementList">
+                                <!-- Labels will be loaded here -->
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title"><i class="fas fa-broom"></i> Maintenance</h6>
+                                    <p class="small text-muted">Remove orphaned entries from data lists</p>
+                                    <button class="btn btn-sm btn-outline-primary w-100" onclick="cleanDataLists()">
+                                        <i class="fas fa-broom"></i> Clean Data Lists
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Model Testing Section -->
                 <div class="feature-section">
                     <div class="section-header">
@@ -706,6 +737,142 @@
                 })
                 .catch(error => alert('Error: ' + error.message));
         }
+
+        // Label Management Functions
+        function loadLabelManagement() {
+            fetch('/get_label_statistics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = '';
+                        
+                        for (const [label, stats] of Object.entries(data.statistics)) {
+                            const totalFiles = stats.video_count + stats.feature_count;
+                            const totalSize = (stats.video_size_mb + stats.feature_size_mb).toFixed(2);
+                            
+                            html += `
+                                <div class="card mb-2">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-3">
+                                                <h6 class="mb-0">
+                                                    <span class="badge bg-primary">${label}</span>
+                                                </h6>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-video"></i> ${stats.video_count} videos &nbsp;
+                                                    <i class="fas fa-database"></i> ${stats.feature_count} features &nbsp;
+                                                    <i class="fas fa-hdd"></i> ${totalSize} MB
+                                                </small>
+                                            </div>
+                                            <div class="col-md-3 text-end">
+                                                <button class="btn btn-sm btn-danger" onclick="confirmRemoveLabel('${label}', ${totalFiles})">
+                                                    <i class="fas fa-trash-alt"></i> Remove
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        document.getElementById('labelManagementList').innerHTML = html;
+                    }
+                })
+                .catch(error => console.error('Error loading labels:', error));
+        }
+
+        function confirmRemoveLabel(labelName, totalFiles) {
+            const confirmed = confirm(
+                `⚠️ WARNING: You are about to remove label "${labelName}"\n\n` +
+                `This will permanently delete:\n` +
+                `• All ${totalFiles} files (.MOV and .npy)\n` +
+                `• All entries from train/test/validation lists\n` +
+                `• The entire ${labelName} directory\n\n` +
+                `This action CANNOT be undone!\n\n` +
+                `Type the label name to confirm: ${labelName}`
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            const userInput = prompt(`Type "${labelName}" to confirm deletion:`);
+            
+            if (userInput !== labelName) {
+                alert('Label name does not match. Deletion cancelled.');
+                return;
+            }
+            
+            removeLabel(labelName);
+        }
+
+        function removeLabel(labelName) {
+            fetch('/remove_label', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ label: labelName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ ${data.message}`);
+                    showAutoUpdateNotification();
+                    
+                    // Reload page after 1.5 seconds
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('❌ Error removing label: ' + error.message);
+            });
+        }
+
+        function cleanDataLists() {
+            if (!confirm('This will remove orphaned entries from train/test/validation lists. Continue?')) {
+                return;
+            }
+            
+            fetch('/clean_data_lists', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let message = `✅ ${data.message}\n\nDetails:\n`;
+                    
+                    for (const [listName, stats] of Object.entries(data.results)) {
+                        message += `\n${listName}: ${stats.original} → ${stats.valid} (removed ${stats.removed})`;
+                    }
+                    
+                    alert(message);
+                    
+                    if (Object.values(data.results).some(r => r.removed > 0)) {
+                        showAutoUpdateNotification();
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('❌ Error cleaning lists: ' + error.message);
+            });
+        }
+
+        // Load label management on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLabelManagement();
+        });
+
     </script>
 </body>
 </html>

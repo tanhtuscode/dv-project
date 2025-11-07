@@ -91,9 +91,17 @@ def update_data_lists():
             npy_files = list(label_dir.glob("*.npy"))
             if npy_files:  # Only process if folder has data
                 for npy_file in npy_files:
-                    # Look for corresponding .MOV file
-                    mov_file = npy_file.with_suffix('.MOV')
-                    if mov_file.exists():
+                    # Look for corresponding .MOV or .mov file
+                    mov_file_upper = npy_file.with_suffix('.MOV')
+                    mov_file_lower = npy_file.with_suffix('.mov')
+                    
+                    mov_file = None
+                    if mov_file_upper.exists():
+                        mov_file = mov_file_upper
+                    elif mov_file_lower.exists():
+                        mov_file = mov_file_lower
+                    
+                    if mov_file:
                         relative_path = str(mov_file.relative_to(tricks_dir)).replace('\\', '/')
                         all_files.append(relative_path)
     
@@ -571,6 +579,186 @@ def download_data_lists():
     except Exception as e:
         flash(f'Error creating download: {str(e)}', 'error')
         return redirect(url_for('index'))
+
+@app.route('/remove_label', methods=['POST'])
+def remove_label():
+    """Remove a label/class and all its data"""
+    try:
+        data = request.get_json()
+        label_name = data.get('label')
+        
+        if not label_name:
+            return jsonify({'success': False, 'message': 'Label name is required'})
+        
+        tricks_dir = Path(TRICKS_PATH)
+        label_dir = tricks_dir / label_name
+        
+        # Check if label exists
+        if not label_dir.exists():
+            return jsonify({'success': False, 'message': f"Label '{label_name}' does not exist"})
+        
+        # Count files before removal
+        npy_files = list(label_dir.glob('*.npy'))
+        mov_files = list(label_dir.glob('*.MOV'))
+        num_files = len(npy_files) + len(mov_files)
+        
+        summary = {
+            'label': label_name,
+            'npy_files_deleted': 0,
+            'mov_files_deleted': 0,
+            'train_entries_removed': 0,
+            'test_entries_removed': 0,
+            'validation_entries_removed': 0,
+            'directory_deleted': False
+        }
+        
+        # Step 1: Delete .npy files
+        for npy_file in npy_files:
+            try:
+                npy_file.unlink()
+                summary['npy_files_deleted'] += 1
+            except Exception as e:
+                print(f"Error deleting {npy_file}: {e}")
+        
+        # Step 2: Delete .MOV files
+        for mov_file in mov_files:
+            try:
+                mov_file.unlink()
+                summary['mov_files_deleted'] += 1
+            except Exception as e:
+                print(f"Error deleting {mov_file}: {e}")
+        
+        # Step 3-5: Update data lists
+        list_files = [
+            ('train', config.TRAIN_LIST),
+            ('test', config.TEST_LIST),
+            ('validation', config.VALIDATION_LIST)
+        ]
+        
+        for list_name, list_path in list_files:
+            if not list_path.exists():
+                continue
+            
+            # Read existing entries
+            with open(list_path, 'r') as f:
+                lines = f.readlines()
+            
+            # Filter out entries for this label
+            new_lines = []
+            removed_count = 0
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Check if line starts with label_name/
+                if not line.startswith(f"{label_name}/"):
+                    new_lines.append(line)
+                else:
+                    removed_count += 1
+            
+            # Write back
+            with open(list_path, 'w') as f:
+                for line in new_lines:
+                    f.write(line + '\n')
+            
+            # Update summary
+            if list_name == 'train':
+                summary['train_entries_removed'] = removed_count
+            elif list_name == 'test':
+                summary['test_entries_removed'] = removed_count
+            else:
+                summary['validation_entries_removed'] = removed_count
+        
+        # Step 6: Delete directory
+        try:
+            shutil.rmtree(label_dir)
+            summary['directory_deleted'] = True
+        except Exception as e:
+            print(f"Error deleting directory: {e}")
+        
+        # Update global labels list
+        global current_labels
+        current_labels = get_available_labels()
+        
+        total_removed = (summary['train_entries_removed'] + 
+                        summary['test_entries_removed'] + 
+                        summary['validation_entries_removed'])
+        
+        message = (f"Successfully removed label '{label_name}': "
+                  f"{summary['npy_files_deleted']} .npy files, "
+                  f"{summary['mov_files_deleted']} .MOV files, "
+                  f"{total_removed} list entries")
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'summary': summary,
+            'available_labels': current_labels
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error removing label: {str(e)}'})
+
+@app.route('/clean_data_lists', methods=['POST'])
+def clean_data_lists():
+    """Remove orphaned entries from data lists"""
+    try:
+        results = {}
+        tricks_dir = Path(TRICKS_PATH)
+        
+        # Clean each list
+        for list_name, list_path in [
+            ('train', config.TRAIN_LIST),
+            ('test', config.TEST_LIST),
+            ('validation', config.VALIDATION_LIST)
+        ]:
+            if not list_path.exists():
+                continue
+            
+            # Read all lines
+            with open(list_path, 'r') as f:
+                lines = [line.strip() for line in f if line.strip()]
+            
+            # Check each entry
+            valid_lines = []
+            invalid_count = 0
+            
+            for line in lines:
+                # Extract path (remove label if present)
+                path = line.split()[0] if ' ' in line else line
+                
+                # Convert to .npy path
+                npy_path = tricks_dir / path.replace('.mov', '.npy').replace('.MOV', '.npy')
+                
+                if npy_path.exists():
+                    valid_lines.append(line)
+                else:
+                    invalid_count += 1
+            
+            # Write back cleaned list
+            if invalid_count > 0:
+                with open(list_path, 'w') as f:
+                    for line in valid_lines:
+                        f.write(line + '\n')
+            
+            results[list_name] = {
+                'original': len(lines),
+                'valid': len(valid_lines),
+                'removed': invalid_count
+            }
+        
+        total_removed = sum(r['removed'] for r in results.values())
+        
+        message = f"Cleaned data lists: removed {total_removed} orphaned entries"
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'results': results
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error cleaning lists: {str(e)}'})
 
 @app.route('/get_label_statistics')
 def get_label_statistics():

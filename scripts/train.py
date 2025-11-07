@@ -14,6 +14,7 @@ from config.paths import config, SEQUENCE_LENGTH, LABELS
 BASE_PATH = str(config.TRICKS_DIR)
 TRAIN_LIST_PATH = str(config.TRAIN_LIST)
 TEST_LIST_PATH = str(config.TEST_LIST)
+VALIDATION_LIST_PATH = str(config.VALIDATION_LIST)
 MODELS_DIR = str(config.MODELS_DIR)
 
 # Map labels to integer indices for sparse labels and class weights
@@ -85,9 +86,17 @@ def make_generator(file_list):
 
             label = os.path.basename(os.path.dirname(path))
             try:
-                features = np.load(full_path)
+                # Try loading with allow_pickle
+                data = np.load(full_path, allow_pickle=True)
+                # If it's an object array (pickled), extract the actual array
+                if data.dtype == object:
+                    features = data.item() if data.ndim == 0 else data[0]
+                    if not isinstance(features, np.ndarray):
+                        features = np.array(features)
+                else:
+                    features = data
             except Exception as e:
-                print(f"Error loading {full_path}: {e}")
+                # Skip files that can't be loaded
                 continue
 
             padded_sequence = np.zeros((SEQUENCE_LENGTH, 2048), dtype=np.float32)
@@ -129,18 +138,24 @@ def run_training(epochs=30, use_class_weights=True):
     print(f"Labels: {LABELS}")
     print(f"Sequence Length: {SEQUENCE_LENGTH}")
     print(f"Training file: {TRAIN_LIST_PATH}")
+    print(f"Validation file: {VALIDATION_LIST_PATH}")
     print(f"Test file: {TEST_LIST_PATH}")
     print("="*60 + "\n")
     
-    # Load train and test lists
-    with open(TEST_LIST_PATH) as f:
-        test_list = [row.strip() for row in list(f)]
-
+    # Load train, validation, and test lists
     with open(TRAIN_LIST_PATH) as f:
         train_list = [row.strip() for row in list(f)]
         train_list = [row.split(' ')[0] for row in train_list]
 
+    with open(VALIDATION_LIST_PATH) as f:
+        validation_list = [row.strip() for row in list(f)]
+        validation_list = [row.split(' ')[0] for row in validation_list]
+
+    with open(TEST_LIST_PATH) as f:
+        test_list = [row.strip() for row in list(f)]
+
     print(f"Training samples: {len(train_list)}")
+    print(f"Validation samples: {len(validation_list)}")
     print(f"Test samples: {len(test_list)}")
     print()
     
@@ -165,14 +180,22 @@ def run_training(epochs=30, use_class_weights=True):
         output_types=(tf.float32, tf.int32),
         output_shapes=((SEQUENCE_LENGTH, 2048), ())
     )
-    train_dataset = train_dataset.batch(16).prefetch(tf.data.AUTOTUNE)
+    train_dataset = train_dataset.repeat().batch(16).prefetch(tf.data.AUTOTUNE)
 
     valid_dataset = tf.data.Dataset.from_generator(
-        make_generator(test_list),
+        make_generator(validation_list),
         output_types=(tf.float32, tf.int32),
         output_shapes=((SEQUENCE_LENGTH, 2048), ())
     )
-    valid_dataset = valid_dataset.batch(16).prefetch(tf.data.AUTOTUNE)
+    valid_dataset = valid_dataset.repeat().batch(16).prefetch(tf.data.AUTOTUNE)
+    
+    # Calculate steps per epoch
+    steps_per_epoch = len(train_list) // 16
+    validation_steps = len(validation_list) // 16
+    
+    print(f"Steps per epoch: {steps_per_epoch}")
+    print(f"Validation steps: {validation_steps}")
+    print()
     
     # Create output directories
     log_dir = config.OUTPUTS_DIR / 'logs'
@@ -216,9 +239,11 @@ def run_training(epochs=30, use_class_weights=True):
     
     history = model.fit(
         train_dataset, 
-        epochs=epochs, 
+        epochs=epochs,
+        steps_per_epoch=steps_per_epoch,
         callbacks=[tensorboard_callback, checkpoint_callback, early_stopping, reduce_lr], 
         validation_data=valid_dataset,
+        validation_steps=validation_steps,
         class_weight=class_weight
     )
     
