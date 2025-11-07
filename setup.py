@@ -454,7 +454,6 @@ SkateboardML Project Team
                 else:
                     print("   → ./start_web_app.sh")
                 print("3. Open http://localhost:5000 in your browser")
-                print("\nHappy coding! 🛹\n")
             else:
                 self.print_header("⚠ Setup Completed with Warnings")
                 print("\nSome components may not be properly installed.")
