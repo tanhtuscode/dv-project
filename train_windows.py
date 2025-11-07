@@ -13,7 +13,7 @@ BASE_PATH = 'd:/DV/SkateboardML/Tricks'
 SEQUENCE_LENGTH = 40
 
 # Labels for all tricks
-LABELS = ["Back180", "Front180", "Frontshuvit", "Kickflip", "Ollie", "Shuvit", "Varial"]
+LABELS = ["Kickflip", "Ollie"]
 # map labels to integer indices so we can use sparse labels and class weights
 label_to_index = {label: idx for idx, label in enumerate(LABELS)}
 

@@ -78,7 +78,7 @@ for img, batch_paths in tqdm.tqdm(dataset):
         current_path = path
         all_features.append(features)
         
-LABELS = ["Back180", "Front180", "Frontshuvit", "Kickflip", "Ollie", "Shuvit", "Varial"]
+LABELS = ["Kickflip", "Ollie"]
 encoder = LabelBinarizer()
 encoder.fit(LABELS)
 
