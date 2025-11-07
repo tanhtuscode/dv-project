@@ -24,9 +24,9 @@ class Config:
         # Start from current file's directory
         current_dir = Path(__file__).parent
         
-        # Look for project markers
+        # Look for project markers (files/folders that exist in project root)
         markers = [
-            'BRANCH_STRUCTURE.md',
+            'README.md',
             '.gitignore',
             'data',
             'scripts',
@@ -35,11 +35,12 @@ class Config:
         
         # Search upwards for project root
         for path in [current_dir] + list(current_dir.parents):
-            if all((path / marker).exists() for marker in markers[:3]):  # Check for key markers
+            # Check if at least 3 key markers exist
+            if sum((path / marker).exists() for marker in markers) >= 3:
                 return path
         
-        # Fallback: assume parent of scripts directory
-        if current_dir.name == 'scripts':
+        # Fallback: parent of config directory (since this file is in config/)
+        if current_dir.name == 'config':
             return current_dir.parent
         
         # Final fallback: current directory
