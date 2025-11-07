@@ -3,459 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkateboardML - Trick Classifier</title>
+    <title>SkateboardML - AI Trick Classification</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 800px;
-            width: 100%;
-            padding: 40px;
-        }
-
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
-            padding: 40px;
-            text-align: center;
-            background: #f8f9ff;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f1ff;
-        }
-
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background: #e8e9ff;
-            transform: scale(1.02);
-        }
-
-        .upload-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-        }
-
-        .upload-text {
-            color: #667eea;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .upload-subtext {
-            color: #999;
-            font-size: 0.9em;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .btn {
+        .hero-section {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 30px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-block;
-            margin-top: 20px;
+            padding: 60px 0;
         }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .results {
-            margin-top: 30px;
-            display: none;
-        }
-
-        .results.show {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .prediction {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .prediction-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-bottom: 10px;
-        }
-
-        .prediction-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .prediction-confidence {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-
-        .all-predictions {
-            background: #f8f9ff;
-            padding: 20px;
-            border-radius: 15px;
-        }
-
-        .all-predictions h3 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-
-        .prediction-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            margin-bottom: 8px;
-            background: white;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .prediction-item:first-child {
-            border-left-color: #764ba2;
-            font-weight: 600;
-        }
-
-        .trick-name {
-            font-size: 1.1em;
-            color: #333;
-        }
-
-        .trick-confidence {
-            font-size: 1.1em;
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
+        .feature-card {
+            transition: transform 0.3s ease;
             height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            transition: width 0.5s ease;
         }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
+        .feature-card:hover {
+            transform: translateY(-5px);
         }
-
-        .loading.show {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error {
-            background: #ff4757;
+        .stats-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .error.show {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .supported-tricks {
-            background: #f8f9ff;
-            padding: 20px;
-            border-radius: 15px;
-            margin-top: 20px;
-        }
-
-        .supported-tricks h3 {
-            color: #333;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .tricks-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-        }
-
-        .trick-tag {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            color: #667eea;
-            font-weight: 600;
-            border: 2px solid #667eea;
-        }
-
-        .file-info {
-            margin-top: 15px;
-            padding: 15px;
-            background: #e8f5e9;
-            border-radius: 10px;
-            display: none;
-        }
-
-        .file-info.show {
-            display: block;
-        }
-
-        .file-info-text {
-            color: #2e7d32;
-            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🛹 SkateboardML</h1>
-        <p class="subtitle">AI-Powered Skateboarding Trick Classifier</p>
-
-        <div class="upload-area" id="uploadArea">
-            <div class="upload-icon">🎬</div>
-            <div class="upload-text">Drop your video here or click to browse</div>
-            <div class="upload-subtext">Supported formats: MOV, MP4, AVI, MKV, WEBM (Max 50MB)</div>
-            <input type="file" id="videoInput" accept="video/*">
-        </div>
-
-        <div class="file-info" id="fileInfo">
-            <div class="file-info-text" id="fileInfoText"></div>
-        </div>
-
-        <div style="text-align: center;">
-            <button class="btn" id="predictBtn" disabled>Classify Trick</button>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Analyzing video... This may take a moment.</p>
-        </div>
-
-        <div class="error" id="error"></div>
-
-        <div class="results" id="results">
-            <div class="prediction">
-                <div class="prediction-label">Predicted Trick</div>
-                <div class="prediction-value" id="predictedTrick"></div>
-                <div class="prediction-confidence" id="confidence"></div>
-            </div>
-
-            <div class="all-predictions">
-                <h3>All Predictions</h3>
-                <div id="allPredictions"></div>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-brain"></i> SkateboardML
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('data_collection') }}">Data Collection</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('model_testing') }}">Model Testing</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('prediction') }}">Prediction</a>
+                    </li>
+                </ul>
             </div>
         </div>
+    </nav>
 
-        <div class="supported-tricks">
-            <h3>Supported Tricks</h3>
-            <div class="tricks-grid">
-                {% for label in labels %}
-                <div class="trick-tag">{{ label }}</div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const uploadArea = document.getElementById('uploadArea');
-        const videoInput = document.getElementById('videoInput');
-        const predictBtn = document.getElementById('predictBtn');
-        const loading = document.getElementById('loading');
-        const results = document.getElementById('results');
-        const error = document.getElementById('error');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileInfoText = document.getElementById('fileInfoText');
-
-        let selectedFile = null;
-
-        // Click to upload
-        uploadArea.addEventListener('click', () => {
-            videoInput.click();
-        });
-
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileSelect(files[0]);
-            }
-        });
-
-        // File input change
-        videoInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
-        });
-
-        function handleFileSelect(file) {
-            selectedFile = file;
-            predictBtn.disabled = false;
-            fileInfo.classList.add('show');
-            fileInfoText.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-            results.classList.remove('show');
-            error.classList.remove('show');
-        }
-
-        // Predict button
-        predictBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
-
-            // Hide previous results and errors
-            results.classList.remove('show');
-            error.classList.remove('show');
-            loading.classList.add('show');
-            predictBtn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('video', selectedFile);
-
-            try {
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                loading.classList.remove('show');
-
-                if (data.success) {
-                    // Display results
-                    document.getElementById('predictedTrick').textContent = data.predicted_trick;
-                    document.getElementById('confidence').textContent = 
-                        `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
-
-                    // Display all predictions
-                    const allPredictionsDiv = document.getElementById('allPredictions');
-                    allPredictionsDiv.innerHTML = '';
-
-                    data.all_predictions.forEach(([trick, conf]) => {
-                        const item = document.createElement('div');
-                        item.className = 'prediction-item';
-                        item.innerHTML = `
-                            <div class="trick-name">${trick}</div>
-                            <div class="trick-confidence">${(conf * 100).toFixed(1)}%</div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${conf * 100}%"></div>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-skateboard"></i> SkateboardML
+            </h1>
+            <p class="lead mb-4">AI-Powered Skateboard Trick Classification System</p>
+            <p class="mb-4">Train, test, and predict skateboard tricks using machine learning</p>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="stats-card card p-3 mb-4">
+                        <div id="dataset-stats" class="row text-center">
+                            <div class="col-md-4">
+                                <h4 id="total-samples">Loading...</h4>
+                                <small>Total Samples</small>
                             </div>
-                        `;
-                        allPredictionsDiv.appendChild(item);
-                    });
+                            <div class="col-md-4">
+                                <h4 id="train-samples">Loading...</h4>
+                                <small>Training Samples</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h4 id="test-samples">Loading...</h4>
+                                <small>Test Samples</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-                    results.classList.add('show');
-                } else {
-                    showError(data.error || 'An error occurred');
-                }
-            } catch (err) {
-                loading.classList.remove('show');
-                showError('Failed to connect to server: ' + err.message);
-            }
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+                <!-- Data Collection -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-upload fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Data Collection</h5>
+                            <p class="card-text">Upload new skateboard trick videos, label them, and automatically add them to your training dataset.</p>
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    Supported formats: MP4, MOV, AVI, MKV
+                                </small>
+                            </div>
+                            <a href="{{ url_for('data_collection') }}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add Training Data
+                            </a>
+                        </div>
+                    </div>
+                </div>
 
-            predictBtn.disabled = false;
-        });
+                <!-- Model Testing -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-vials fa-3x text-success"></i>
+                            </div>
+                            <h5 class="card-title">Model Testing</h5>
+                            <p class="card-text">Manually test your trained model by uploading videos and comparing predictions with actual labels.</p>
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    Get detailed accuracy metrics and confidence scores
+                                </small>
+                            </div>
+                            <a href="{{ url_for('model_testing') }}" class="btn btn-success">
+                                <i class="fas fa-flask"></i> Test Model
+                            </a>
+                        </div>
+                    </div>
+                </div>
 
-        function showError(message) {
-            error.textContent = message;
-            error.classList.add('show');
+                <!-- Prediction -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card feature-card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-magic fa-3x text-warning"></i>
+                            </div>
+                            <h5 class="card-title">Trick Prediction</h5>
+                            <p class="card-text">Use your best trained model to predict what skateboard trick is being performed in any video.</p>
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    Get instant predictions with confidence scores
+                                </small>
+                            </div>
+                            <a href="{{ url_for('prediction') }}" class="btn btn-warning">
+                                <i class="fas fa-eye"></i> Predict Trick
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Current Labels Section -->
+    <section class="py-4 bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <h4 class="text-center mb-4">Current Trick Labels</h4>
+                    <div class="d-flex justify-content-center flex-wrap">
+                        {% for label in labels %}
+                        <span class="badge bg-primary me-2 mb-2 p-2">
+                            <i class="fas fa-tag"></i> {{ label }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Model Information -->
+    <section class="py-4">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-robot"></i> Available Models
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="model-info">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading model information...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container text-center">
+            <p>&copy; 2024 SkateboardML. AI-powered skateboard trick classification.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load dataset statistics
+        function loadDatasetStats() {
+            fetch('/get_dataset_stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('total-samples').textContent = data.total_samples;
+                        document.getElementById('train-samples').textContent = data.train_samples;
+                        document.getElementById('test-samples').textContent = data.test_samples;
+                    } else {
+                        document.getElementById('total-samples').textContent = 'Error';
+                        document.getElementById('train-samples').textContent = 'Error';
+                        document.getElementById('test-samples').textContent = 'Error';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading dataset stats:', error);
+                    document.getElementById('total-samples').textContent = 'Error';
+                    document.getElementById('train-samples').textContent = 'Error';
+                    document.getElementById('test-samples').textContent = 'Error';
+                });
         }
+
+        // Load model information
+        function loadModelInfo() {
+            fetch('/get_model_info')
+                .then(response => response.json())
+                .then(data => {
+                    const modelInfoDiv = document.getElementById('model-info');
+                    if (data.success && data.models.length > 0) {
+                        let html = '<div class="table-responsive"><table class="table table-sm">';
+                        html += '<thead><tr><th>Model</th><th>Size</th><th>Last Modified</th></tr></thead><tbody>';
+                        data.models.forEach(model => {
+                            html += `<tr>
+                                <td><i class="fas fa-robot"></i> ${model.name}</td>
+                                <td>${model.size_mb} MB</td>
+                                <td>${model.modified}</td>
+                            </tr>`;
+                        });
+                        html += '</tbody></table></div>';
+                        modelInfoDiv.innerHTML = html;
+                    } else {
+                        modelInfoDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> No trained models found. Please train a model first.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading model info:', error);
+                    document.getElementById('model-info').innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> Error loading model information.</div>';
+                });
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDatasetStats();
+            loadModelInfo();
+        });
     </script>
 </body>
 </html>

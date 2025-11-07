@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Testing - SkateboardML</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .upload-zone {
+            border: 3px dashed #28a745;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8fff9;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #1e7e34;
+            background: #e6ffec;
+            transform: scale(1.02);
+        }
+        .result-card {
+            display: none;
+        }
+        .confidence-bar {
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .test-history {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-brain"></i> SkateboardML
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('data_collection') }}">Data Collection</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('model_testing') }}">Model Testing</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('prediction') }}">Prediction</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center">
+                    <i class="fas fa-vials text-success"></i> Model Testing
+                </h1>
+                <p class="text-center text-muted">Test your model's accuracy by uploading videos with known labels</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Testing Form -->
+            <div class="col-lg-6">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-upload"></i> Upload Test Video</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="testForm" enctype="multipart/form-data">
+                            <!-- Upload Zone -->
+                            <div class="upload-zone mb-4" id="uploadZone">
+                                <i class="fas fa-flask fa-4x text-success mb-3"></i>
+                                <h5>Drop test video here or click to browse</h5>
+                                <p class="text-muted">Supported formats: MP4, MOV, AVI, MKV</p>
+                                <input type="file" id="videoFile" name="video" accept="video/*" style="display: none;">
+                            </div>
+
+                            <!-- File Info -->
+                            <div id="fileInfo" class="alert alert-info" style="display: none;">
+                                <i class="fas fa-info-circle"></i> <span id="fileInfoText"></span>
+                            </div>
+
+                            <!-- Actual Label (Optional) -->
+                            <div class="mb-3">
+                                <label for="actualLabel" class="form-label">
+                                    <i class="fas fa-tag"></i> Actual Trick Label (Optional)
+                                </label>
+                                <select class="form-select" id="actualLabel" name="actual_label">
+                                    <option value="">Select the actual trick (for accuracy comparison)...</option>
+                                    {% for label in labels %}
+                                    <option value="{{ label }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    If provided, we'll show whether the prediction was correct or not
+                                </div>
+                            </div>
+
+                            <!-- Test Button -->
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-lg" id="testBtn" disabled>
+                                    <i class="fas fa-flask"></i> Test Model
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Progress -->
+                        <div id="progressSection" style="display: none;" class="mt-4">
+                            <h6>Testing Model...</h6>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 100%"></div>
+                            </div>
+                            <p class="mt-2 text-muted">Extracting features and making prediction...</p>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div id="errorMessage" class="alert alert-danger mt-4" style="display: none;">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Error</h6>
+                            <p id="errorText"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="col-lg-6">
+                <div class="card shadow result-card" id="resultCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-chart-line"></i> Test Results</h5>
+                        <span id="accuracyBadge" class="badge"></span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Main Prediction -->
+                        <div class="text-center mb-4 p-3 rounded" id="predictionDisplay">
+                            <h3 class="mb-2">Predicted: <span id="predictedLabel" class="text-primary"></span></h3>
+                            <h5 class="text-muted">Confidence: <span id="confidence"></span></h5>
+                        </div>
+
+                        <!-- Actual vs Predicted (if actual provided) -->
+                        <div id="comparisonSection" style="display: none;" class="mb-4">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h6>Actual</h6>
+                                            <h4 id="actualLabelDisplay" class="text-info"></h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="card">
+                                        <div class="card-body text-center">
+                                            <h6>Predicted</h6>
+                                            <h4 id="predictedLabelDisplay" class="text-primary"></h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- All Probabilities -->
+                        <div>
+                            <h6>All Probabilities</h6>
+                            <div id="allProbabilities"></div>
+                        </div>
+
+                        <!-- Model Info -->
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                Model: <span id="modelUsed"></span> |
+                                Features: <span id="featuresExtracted"></span> frames
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test History -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-history"></i> Test History</h5>
+                        <div>
+                            <span class="badge bg-success me-2">Correct: <span id="correctCount">0</span></span>
+                            <span class="badge bg-danger me-2">Incorrect: <span id="incorrectCount">0</span></span>
+                            <span class="badge bg-primary">Accuracy: <span id="overallAccuracy">-</span></span>
+                        </div>
+                    </div>
+                    <div class="card-body test-history" id="testHistory">
+                        <p class="text-muted text-center">No tests performed yet. Upload a video to start testing!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFile = null;
+        let testHistory = [];
+
+        // DOM elements
+        const uploadZone = document.getElementById('uploadZone');
+        const videoFile = document.getElementById('videoFile');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileInfoText = document.getElementById('fileInfoText');
+        const testBtn = document.getElementById('testBtn');
+        const testForm = document.getElementById('testForm');
+        const progressSection = document.getElementById('progressSection');
+        const resultCard = document.getElementById('resultCard');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+
+        // Upload zone interactions
+        uploadZone.addEventListener('click', () => {
+            videoFile.click();
+        });
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        videoFile.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            selectedFile = file;
+            fileInfo.style.display = 'block';
+            fileInfoText.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            testBtn.disabled = false;
+            hideMessages();
+        }
+
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            resultCard.style.display = 'none';
+        }
+
+        // Form submission
+        testForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedFile) return;
+
+            hideMessages();
+            progressSection.style.display = 'block';
+            testBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            const actualLabel = document.getElementById('actualLabel').value;
+            if (actualLabel) {
+                formData.append('actual_label', actualLabel);
+            }
+
+            try {
+                const response = await fetch('/test_model', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                progressSection.style.display = 'none';
+
+                if (data.success) {
+                    displayResults(data);
+                    addToHistory(data, selectedFile.name, actualLabel);
+                    updateHistoryStats();
+                } else {
+                    errorText.textContent = data.error || 'An error occurred';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                progressSection.style.display = 'none';
+                errorText.textContent = 'Failed to test model: ' + error.message;
+                errorMessage.style.display = 'block';
+            }
+
+            testBtn.disabled = false;
+        });
+
+        function displayResults(data) {
+            // Show result card
+            resultCard.style.display = 'block';
+
+            // Main prediction
+            document.getElementById('predictedLabel').textContent = data.predicted_label;
+            document.getElementById('confidence').textContent = `${(data.confidence * 100).toFixed(1)}%`;
+
+            // Accuracy badge
+            const accuracyBadge = document.getElementById('accuracyBadge');
+            if (data.actual_label) {
+                if (data.correct) {
+                    accuracyBadge.className = 'badge bg-success';
+                    accuracyBadge.textContent = 'Correct ✓';
+                } else {
+                    accuracyBadge.className = 'badge bg-danger';
+                    accuracyBadge.textContent = 'Incorrect ✗';
+                }
+                
+                // Show comparison
+                document.getElementById('comparisonSection').style.display = 'block';
+                document.getElementById('actualLabelDisplay').textContent = data.actual_label;
+                document.getElementById('predictedLabelDisplay').textContent = data.predicted_label;
+            } else {
+                accuracyBadge.className = 'badge bg-secondary';
+                accuracyBadge.textContent = 'No actual label';
+                document.getElementById('comparisonSection').style.display = 'none';
+            }
+
+            // All probabilities
+            const probDiv = document.getElementById('allProbabilities');
+            probDiv.innerHTML = '';
+            for (const [label, prob] of Object.entries(data.all_probabilities)) {
+                const probPercent = (prob * 100).toFixed(1);
+                const isHighest = label === data.predicted_label;
+                
+                probDiv.innerHTML += `
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="${isHighest ? 'fw-bold' : ''}">${label}</span>
+                            <span class="${isHighest ? 'fw-bold' : ''}">${probPercent}%</span>
+                        </div>
+                        <div class="confidence-bar bg-light">
+                            <div class="bg-${isHighest ? 'primary' : 'secondary'}" style="width: ${probPercent}%; height: 100%;"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Model info
+            document.getElementById('modelUsed').textContent = data.model_used;
+            document.getElementById('featuresExtracted').textContent = data.features_extracted;
+        }
+
+        function addToHistory(data, filename, actualLabel) {
+            const timestamp = new Date().toLocaleString();
+            testHistory.push({
+                timestamp,
+                filename,
+                actualLabel,
+                predictedLabel: data.predicted_label,
+                confidence: data.confidence,
+                correct: data.correct !== undefined ? data.correct : null
+            });
+
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyDiv = document.getElementById('testHistory');
+            if (testHistory.length === 0) {
+                historyDiv.innerHTML = '<p class="text-muted text-center">No tests performed yet.</p>';
+                return;
+            }
+
+            let html = '';
+            testHistory.reverse().forEach((test, index) => {
+                const badgeClass = test.correct === true ? 'bg-success' : 
+                                 test.correct === false ? 'bg-danger' : 'bg-secondary';
+                const statusText = test.correct === true ? 'Correct' : 
+                                 test.correct === false ? 'Incorrect' : 'No label';
+
+                html += `
+                    <div class="border-bottom pb-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${test.filename}</strong>
+                                <br>
+                                <small class="text-muted">${test.timestamp}</small>
+                            </div>
+                            <span class="badge ${badgeClass}">${statusText}</span>
+                        </div>
+                        <div class="mt-1">
+                            ${test.actualLabel ? `Actual: <span class="text-info">${test.actualLabel}</span> | ` : ''}
+                            Predicted: <span class="text-primary">${test.predictedLabel}</span>
+                            (${(test.confidence * 100).toFixed(1)}%)
+                        </div>
+                    </div>
+                `;
+            });
+
+            historyDiv.innerHTML = html;
+            testHistory.reverse(); // Restore original order
+        }
+
+        function updateHistoryStats() {
+            const testsWithLabels = testHistory.filter(t => t.correct !== null);
+            const correctTests = testsWithLabels.filter(t => t.correct === true);
+            const incorrectTests = testsWithLabels.filter(t => t.correct === false);
+
+            document.getElementById('correctCount').textContent = correctTests.length;
+            document.getElementById('incorrectCount').textContent = incorrectTests.length;
+            
+            if (testsWithLabels.length > 0) {
+                const accuracy = (correctTests.length / testsWithLabels.length * 100).toFixed(1);
+                document.getElementById('overallAccuracy').textContent = `${accuracy}%`;
+            } else {
+                document.getElementById('overallAccuracy').textContent = '-';
+            }
+        }
+    </script>
+</body>
+</html>
