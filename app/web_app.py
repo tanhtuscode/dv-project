@@ -86,7 +86,7 @@ def load_best_model():
     """Load the best available model"""
     model_files = ['best_model.keras', 'final_model.keras']
     for model_file in model_files:
-        model_path = os.path.join(BASE_PATH, model_file)
+        model_path = os.path.join(MODEL_PATH, model_file)  # Fixed: use MODEL_PATH instead of BASE_PATH
         if os.path.exists(model_path):
             try:
                 model = tf.keras.models.load_model(model_path)
@@ -326,7 +326,7 @@ def train_model():
         import sys
         import os
         sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
-        from train_windows import run_training
+        from train import run_training  # Fixed: import from train instead of train_windows
         
         epochs = request.form.get('epochs', 10, type=int)
         
