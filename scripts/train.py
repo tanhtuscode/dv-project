@@ -234,6 +234,21 @@ def run_training(epochs=30, use_class_weights=True):
     print(f"Logs saved to: {log_dir}")
     print("="*60)
     
+    # Save training history for visualization
+    history_path = config.PROJECT_ROOT / 'training_history.json'
+    history_dict = {
+        'loss': history.history['loss'],
+        'val_loss': history.history['val_loss'],
+        'accuracy': history.history['accuracy'],
+        'val_accuracy': history.history['val_accuracy']
+    }
+    
+    with open(history_path, 'w') as f:
+        import json
+        json.dump(history_dict, f, indent=2)
+    
+    print(f"Training history saved to: {history_path}")
+    
     # Print training summary
     print("\nTraining Summary:")
     print(f"  Final training accuracy:   {history.history['accuracy'][-1]:.4f}")
