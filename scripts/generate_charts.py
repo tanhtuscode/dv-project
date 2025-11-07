@@ -20,15 +20,17 @@ OUTPUT_DIR = str(config.OUTPUTS_DIR / "charts")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-def load_file_list(filename):
-    """Load train or test file list - automatically finds the correct file."""
+def load_file_list(list_type='train'):
+    """Load train or test file list - automatically finds the correct file.
+    
+    Args:
+        list_type: 'train' or 'test' to indicate which type of list to load
+    """
     # Try different possible filenames
-    possible_files = [
-        filename,
-        'trainlist_binary.txt' if 'train' in filename.lower() else 'testlist_binary.txt',
-        'trainlist03.txt' if 'train' in filename.lower() else 'testlist03.txt',
-        'trainlist.txt' if 'train' in filename.lower() else 'testlist.txt',
-    ]
+    if list_type.lower() == 'train':
+        possible_files = ['trainlist_binary.txt', 'trainlist03.txt', 'trainlist.txt']
+    else:
+        possible_files = ['testlist_binary.txt', 'testlist03.txt', 'testlist.txt']
     
     for fname in possible_files:
         filepath = str(config.DATA_DIR / fname)
@@ -39,7 +41,7 @@ def load_file_list(filename):
                 file_list = [row.split(' ')[0] for row in file_list]
             return file_list
     
-    print(f"Error: Could not find any training/test list file")
+    print(f"Error: Could not find any {list_type} list file")
     return []
 
 
@@ -47,8 +49,11 @@ def get_all_labels_from_data(train_list, test_list):
     """Dynamically extract all unique labels from the data."""
     all_labels = set()
     for filepath in train_list + test_list:
+        if not filepath:  # Skip empty lines
+            continue
         label = os.path.basename(os.path.dirname(filepath))
-        all_labels.add(label)
+        if label:  # Only add non-empty labels
+            all_labels.add(label)
     return sorted(list(all_labels))
 
 
