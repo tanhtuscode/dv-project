@@ -21,12 +21,35 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def load_file_list(filename):
-    """Load train or test file list."""
-    filepath = str(config.DATA_DIR / filename)
-    with open(filepath, 'r') as f:
-        file_list = [row.strip() for row in f]
-        file_list = [row.split(' ')[0] for row in file_list]
-    return file_list
+    """Load train or test file list - automatically finds the correct file."""
+    # Try different possible filenames
+    possible_files = [
+        filename,
+        'trainlist_binary.txt' if 'train' in filename.lower() else 'testlist_binary.txt',
+        'trainlist03.txt' if 'train' in filename.lower() else 'testlist03.txt',
+        'trainlist.txt' if 'train' in filename.lower() else 'testlist.txt',
+    ]
+    
+    for fname in possible_files:
+        filepath = str(config.DATA_DIR / fname)
+        if os.path.exists(filepath):
+            print(f"Loading: {fname}")
+            with open(filepath, 'r') as f:
+                file_list = [row.strip() for row in f]
+                file_list = [row.split(' ')[0] for row in file_list]
+            return file_list
+    
+    print(f"Error: Could not find any training/test list file")
+    return []
+
+
+def get_all_labels_from_data(train_list, test_list):
+    """Dynamically extract all unique labels from the data."""
+    all_labels = set()
+    for filepath in train_list + test_list:
+        label = os.path.basename(os.path.dirname(filepath))
+        all_labels.add(label)
+    return sorted(list(all_labels))
 
 
 def extract_labels(file_list):
@@ -42,9 +65,13 @@ def plot_class_distribution():
     """Plot class distribution for train and test sets."""
     print("Generating class distribution chart...")
     
-    # Load data
-    train_list = load_file_list('trainlist03.txt')
-    test_list = load_file_list('testlist03.txt')
+    # Load data - will auto-detect which list file to use
+    train_list = load_file_list('train')
+    test_list = load_file_list('test')
+    
+    if not train_list or not test_list:
+        print("Error: Could not load training/test lists. Skipping class distribution charts.")
+        return
     
     train_labels = extract_labels(train_list)
     test_labels = extract_labels(test_list)
@@ -53,8 +80,11 @@ def plot_class_distribution():
     train_counts = Counter(train_labels)
     test_counts = Counter(test_labels)
     
+    # Get all unique labels from actual data (supports any number of classes)
+    labels = get_all_labels_from_data(train_list, test_list)
+    print(f"Found {len(labels)} classes: {labels}")
+    
     # Prepare data for plotting
-    labels = LABELS
     train_values = [train_counts.get(label, 0) for label in labels]
     test_values = [test_counts.get(label, 0) for label in labels]
     
@@ -131,13 +161,21 @@ def plot_class_imbalance():
     """Plot class imbalance ratios."""
     print("Generating class imbalance chart...")
     
-    train_list = load_file_list('trainlist03.txt')
+    train_list = load_file_list('train')
+    if not train_list:
+        print("Error: Could not load training list. Skipping class imbalance chart.")
+        return
+        
     train_labels = extract_labels(train_list)
     train_counts = Counter(train_labels)
     
     # Calculate imbalance ratio (relative to most common class)
     max_count = max(train_counts.values())
-    labels = LABELS
+    
+    # Get actual labels from data
+    labels = sorted(train_counts.keys())
+    print(f"Analyzing imbalance for {len(labels)} classes")
+    
     counts = [train_counts.get(label, 0) for label in labels]
     ratios = [count / max_count if count > 0 else 0 for count in counts]
     
@@ -276,13 +314,22 @@ def plot_missing_files():
     """Visualize missing .npy files."""
     print("Analyzing missing .npy files...")
     
-    train_list = load_file_list('trainlist03.txt')
-    test_list = load_file_list('testlist03.txt')
+    train_list = load_file_list('train')
+    test_list = load_file_list('test')
+    
+    if not train_list or not test_list:
+        print("Error: Could not load training/test lists. Skipping missing files analysis.")
+        return
+        
     all_files = train_list + test_list
     
+    # Get all unique labels from data
+    labels = get_all_labels_from_data(train_list, test_list)
+    print(f"Checking {len(all_files)} files across {len(labels)} classes")
+    
     # Check which files are missing
-    missing_by_class = {label: 0 for label in LABELS}
-    existing_by_class = {label: 0 for label in LABELS}
+    missing_by_class = {label: 0 for label in labels}
+    existing_by_class = {label: 0 for label in labels}
     
     for filepath in all_files:
         label = os.path.basename(os.path.dirname(filepath))
